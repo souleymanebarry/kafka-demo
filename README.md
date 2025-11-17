@@ -62,86 +62,132 @@ Si même group.id	Les consommateurs partagent la charge
 Oui ! Le groupId est le nom du groupe auquel sont rattachés vos consommateurs, pour travailler ensemble et se partager les partitions.
 ----------------------------------------------------------------------------------------------------------
 
-Parfait — voici un schéma clair et visuel pour comprendre ce qu’est un groupId dans Kafka.
+# Comprendre le `group.id` dans Apache Kafka
 
-🧩 Exemple avec un topic, des partitions et plusieurs consumers
+Ce document explique clairement le rôle du `group.id` dans Kafka à l’aide de schémas ASCII.
 
-Imaginons un topic :
+---
 
-Topic : orders
-Partitions : 3
+## 📌 Qu’est-ce que le `group.id` ?
 
+Le `group.id` est le **nom du groupe de consommateurs Kafka**.
 
-Représenté comme :
+Tous les consommateurs ayant le **même `group.id`** travaillent ensemble et Kafka leur répartit automatiquement les partitions d’un topic.
 
-orders:
- ├─ Partition 0
- ├─ Partition 1
- └─ Partition 2
+> 👉 **Même group = consommation partagée**  
+> 👉 **Groupes différents = chaque consumer lit tous les messages**
 
-🟦 Cas 1 — Deux consommateurs dans le même groupId
-group.id = "order-processing"
+---
 
-
-Les consommateurs :
-
-Consumer A (group: order-processing)
-Consumer B (group: order-processing)
-
-
-Répartition automatique par Kafka :
+## 🧩 Exemple : un topic avec 3 partitions
 
 orders topic
- ├─ Partition 0 → Consumer A
- ├─ Partition 1 → Consumer B
- └─ Partition 2 → Consumer A  (par exemple)
+├─ Partition 0
+├─ Partition 1
+└─ Partition 2
 
+yaml
+Copier le code
 
-➡️ Ils travaillent ensemble, partagent les partitions, et ne traitent jamais le même message.
+---
 
-🟥 Cas 2 — Deux consommateurs dans des groupes différents
+## 🟦 Cas 1 — Deux consommateurs avec le *même* `group.id`
+
+group.id = "order-processing"
+
+markdown
+Copier le code
+
+### Consumers :
+- Consumer A
+- Consumer B
+
+### Répartition :
+
+orders topic
+├─ Partition 0 → Consumer A
+├─ Partition 1 → Consumer B
+└─ Partition 2 → Consumer A (exemple)
+
+yaml
+Copier le code
+
+✔️ Les consommateurs **travaillent ensemble**  
+✔️ Les messages ne sont **jamais traités deux fois**  
+✔️ Kafka répartit automatiquement les partitions
+
+---
+
+## 🟥 Cas 2 — Deux consommateurs avec des `group.id` différents
+
 Consumer A → group.id = "groupA"
 Consumer B → group.id = "groupB"
 
+shell
+Copier le code
 
-Schéma :
+### Répartition :
 
-orders topic
- ├─ Partition 0 → Consumer A
- ├─ Partition 1 → Consumer A
- ├─ Partition 2 → Consumer A
+orders topic (vu par Consumer A)
+├─ Partition 0
+├─ Partition 1
+└─ Partition 2
 
-orders topic
- ├─ Partition 0 → Consumer B
- ├─ Partition 1 → Consumer B
- └─ Partition 2 → Consumer B
+orders topic (vu par Consumer B)
+├─ Partition 0
+├─ Partition 1
+└─ Partition 2
 
+yaml
+Copier le code
 
-➡️ Ils lisent indépendamment.
-➡️ Chaque groupe lit 100% des messages du topic.
+✔️ **Chaque groupe lit 100% des messages du topic**  
+✔️ Les consommateurs sont considérés comme des services **indépendants**  
+✔️ Utile pour avoir plusieurs pipelines de lecture
 
-Kafka considère que ce sont deux services différents.
+---
 
-🟩 Cas 3 — Trois consommateurs pour deux partitions
-Topic "payment" : 2 partitions
+## 🟩 Cas 3 — Plus de consommateurs que de partitions
+
+Topic `payment` avec **2 partitions**, et **3 consommateurs** dans le même groupe :
 
 Consumers (group "payment-service") :
- - C1
- - C2
- - C3
 
+C1
 
-Kafka ne peut pas faire mieux que :
+C2
+
+C3
+
+perl
+Copier le code
+
+Kafka ne peut attribuer qu’un consommateur par partition :
 
 payment topic
- ├─ Partition 0 → C1
- └─ Partition 1 → C2
+├─ Partition 0 → C1
+└─ Partition 1 → C2
 
+yaml
+Copier le code
 
-➡️ C3 reste inactif, car :
+➡️ Le Consumer C3 **ne reçoit aucun message**  
+➡️ Kafka **ne peut pas** avoir plus de consommateurs actifs que de partitions
 
-Un groupe ne peut pas avoir plus de consommateurs que de partitions.
+---
 
-🎯 Résumé visuel final
-Même group.id = partage des partitions = consommation parallèle sécurisée
-Group.id différent = chaque consumer lit tout = duplication volontaire
+## 🎯 Résumé visuel
+
+Même group.id → partitions réparties entre consommateurs
+Group.id différent → chaque consumer lit tout le topic
+
+yaml
+Copier le code
+
+---
+
+## 📘 À retenir
+
+- Le `group.id` définit **quel ensemble de consommateurs travaille en équipe**.  
+- Chaque partition ne peut être consommée que par **un consumer à la fois** dans un groupe.  
+- Kafka assure la **répartition**, la **tolérance aux pannes**, et le **rééquilibrage automatique**.
